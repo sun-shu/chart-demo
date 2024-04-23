@@ -1,24 +1,333 @@
+// @ts-nocheck
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 
-function App() {
+import { useEffect, useRef, useState } from 'react';
+
+import ReactEcharts from 'echarts-for-react';
+import dayjs from 'dayjs';
+
+import { Button, Select } from 'antd';
+
+const data = [{
+  date: '2023-01-05',
+  type: '本年度',
+  month: '1 月',
+  value: 42,
+},
+  {
+    date: '2023-02-03',
+    type: '本年度',
+    month: '2 月',
+    value: 67,
+  },
+  {
+    date: '2023-03-12',
+    type: '本年度',
+    month: '3 月',
+    value: 38,
+  },
+  {
+    date: '2023-04-20',
+    type: '本年度',
+    month: '4 月',
+    value: 55,
+  },
+  {
+    date: '2023-05-05',
+    type: '本年度',
+    month: '5 月',
+    value: 76,
+  },
+  {
+    date: '2023-06-10',
+    type: '本年度',
+    month: '6 月',
+    value: 23,
+  },
+
+  {
+    date: '2023-09-05',
+    type: '本年度',
+    month: '9 月',
+    value: 33,
+  },
+  {
+    date: '2023-10-10',
+    type: '本年度',
+    month: '10 月',
+    value: 66,
+  },
+  {
+    date: '2023-11-15',
+    type: '本年度',
+    month: '11 月',
+    value: 55,
+  },
+  {
+    date: '2023-12-20',
+    type: '本年度',
+    month: '12 月',
+    value: 99,
+  },
+  {
+    date: '2022-05-06',
+    type: '上一年',
+    month: '5 月',
+    value: 56,
+  },
+  {
+    date: '2022-06-07',
+    type: '上一年',
+    month: '6 月',
+    value: 85,
+  },
+  {
+    date: '2022-07-09',
+    type: '上一年',
+    month: '7 月',
+    value: 45,
+  }];
+const TestTrend = ({ chartData, activeYear }:{
+    chartData: any;
+    activeYear: any;
+
+}) => {
+  const [option, setOption] = useState({});
+  const [dayList, setDayList] = useState([]);
+  const [activeDate, setActiveDate] = useState();
+
+  useEffect(() => {
+    const { thisYearDataList, lastYearDataList, dayListArray } = remakeData();
+
+    const initOption = {
+
+      xAxis: {
+        type: 'time',
+        formatter: function(value) {
+          return dayjs(value).format('MM');
+        },
+      },
+      yAxis: {
+        type: 'value',
+      },
+      series: [{
+        symbol: 'none', // 去掉箭头
+        data: thisYearDataList,
+        type: 'line',
+        color: '#F9AD9B',
+        markLine: {
+          data: [],
+        },
+      }, {
+        symbol: 'none', // 去掉箭头
+        data: lastYearDataList,
+        color: '#00ADB8',
+        type: 'line',
+      }],
+      dataZoom: [{
+        type: 'slider',
+        show: false,
+        filterMode: 'none',
+      }, {
+        type: 'inside',
+        zoomLock: true,
+        filterMode: 'none',
+      }],
+    };
+
+    setOption(initOption);
+
+    const getStartAndEndMonthIndex = (month) => {
+      const index = dayListArray.findIndex(item => parseInt(dayjs(item).format('MM')) === month);
+      const monthFormat = dayjs(dayListArray[index]).format('MM');
+      change(monthFormat, index, dayListArray);
+    };
+
+    getStartAndEndMonthIndex(1); // 传入当前想展示的月份
+  }, []);
+
+
+  // 将日期转化为本年度
+  const formatDate = (date) => {
+    return `${dayjs(activeDate).format('YYYY')}-${dayjs(date).format('MM-DD')}`;
+  };
+
+  const remakeData = () => {
+    // 按照日期排序
+    const sortedData = data.sort((a, b) => {
+      return dayjs(formatDate(a.date)).valueOf() - dayjs(formatDate(b.date)).valueOf();
+    });
+
+    const thisYearDataList = sortedData.filter((item) => item.type === '本年度')
+        .map((item) => ([
+          formatDate(item.date),
+          item.value,
+        ]));
+
+    // 这里格式化成今年是为了在一个X轴展示
+    const lastYearDataList = sortedData.filter((item) => item.type === '上一年')
+        .map((item) => ([formatDate(item.date), item.value]));
+
+    const dayListArray = thisYearDataList
+        .map((item) => item[0]);
+
+    setDayList(dayListArray);
+
+    return {
+      thisYearDataList,
+      lastYearDataList,
+      dayListArray,
+    };
+  };
+
+  const change = (item, index, dayList) => {
+    let start, end;
+    // 点击日期放在中间（数据中间）（若日期密度不确定则可能出现当前选中数据出现在非中间的其他位置）
+    start = index - 3 < 0 ? 0 : (index - 3);
+    end = start + 7;
+    if (end > dayList.length) {
+      end = dayList.length;
+      start = end - 7;
+    }
+
+
+    // // 点击日期放在中间（月份中间）
+    // // 根据全部数据获取月份，将当前月份至于中间，展示前后三个月数据（若日期密度不确定，则可能导致charts图一边密一边稀疏的情况）
+    // const month = dayjs(item).format('MM');
+    // // 获取当前月份的索引
+    // const indexMonth = dayList.findIndex(item => dayjs(item).format('MM') === month);
+    // let startMonthIndex = dayList.findIndex(item => parseInt(dayjs(item).format('MM')) === parseInt(month) - 3);
+    // if (startMonthIndex < 0) startMonthIndex = 0;
+    // // 获取当前月份的索引
+    // const startMonth = dayjs(dayList[start]).format('MM');
+    // let endMonth = parseInt(startMonth) + 6;
+    // if (endMonth > 12) {
+    // 	endMonth = 12;
+    // }
+    // if (indexMonth !== -1) {
+    // 	start = startMonthIndex < 0 ? 0 : startMonthIndex;
+    // 	end = dayList.findIndex(item => parseInt(dayjs(item).format('MM')) === endMonth);
+    // }
+    //
+    // if (endMonth >= 12) {
+    // 	end = dayList.length - 1;
+    // 	start = dayList.findIndex(item => parseInt(dayjs(item).format('MM')) === parseInt(endMonth) - 6);
+    // }
+
+
+    // 更新echarts图表的dataZoom
+    setOption((prev) => {
+      console.log('dayList4', dayList, dayList[index]);
+
+      return {
+        ...prev,
+        dataZoom: [
+          {
+            type: 'slider',
+            show: false,
+            filterMode: 'none',
+            startValue: dayList[start],
+            endValue: dayList[end],
+          }, {
+            type: 'inside',
+            zoomLock: true,
+            filterMode: 'none',
+
+          },
+        ],
+        series: [
+          {
+            ...prev.series?.[0],
+            markLine: {
+              data: [{
+                xAxis: dayList[index], // 选中的 x 轴坐标索引
+              }],
+            },
+          },
+          {
+            ...prev.series?.[1],
+            symbol: 'none', // 去掉箭头
+            markLine: {
+              data: [{
+                xAxis: dayList[index], // 选中的 x 轴坐标索引
+              }],
+              color: '#F9AD9B',
+            },
+
+
+          },
+        ],
+      };
+    });
+  };
+
+
+  const handleToggleDateBtnClick = (item, index) => {
+    setActiveDate(item);
+    change(item, index, dayList);
+  };
+
+  return (
+      <div className="scroll max-w-[620px]">
+        <ReactEcharts option={option} style={{ height: '400px' }} />
+
+
+        <div className="overflow-x-scroll flex gap-2">
+          {activeYear && dayList.map((item, index) => (
+              <Button shape="round" key={index} onClick={() => {
+                handleToggleDateBtnClick(item, index);
+              }}
+                      type="primary"
+                      ghost={item !== activeDate}
+              >
+                {item}
+              </Button>
+          ))}
+        </div>
+      </div>
+  );
+};
+
+const MenuGroup = ({ data, currentTab, setCurrentTab }) => {
+  return (
+      <div className="border-b border-solid border-b-[color:var(--BG-,#DBDBDB)] pb-5 flex gap-[10px]">
+        <Button
+            onClick={() => {
+              setCurrentTab('');
+            }}
+            className='px-[20px] py-[10px] text-sm leading-5 tracking-wider justify-center items-stretch border bg-white rounded-3xl border-solid h-auto'
+        >
+          全部
+        </Button>
+        {
+          // data?.year.length > 1 &&
+          ['2013', '2014']?.map((item) => {
+            return <Button
+                className='px-[20px] py-[10px] text-sm leading-5 tracking-wider justify-center items-stretch border bg-white rounded-3xl border-solid h-auto'
+                onClick={() => {
+                  setCurrentTab(item);
+                }}
+            >
+              {item}
+            </Button>;
+          })
+        }
+
+
+      </div>
+  );
+};
+
+  function App() {
+    const [activeYear, setActiveYear] = useState('');
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <MenuGroup currentTab={activeYear} setCurrentTab={setActiveYear}></MenuGroup>
+      <TestTrend activeYear={activeYear}  chartData={[]}/>
+
     </div>
   );
 }

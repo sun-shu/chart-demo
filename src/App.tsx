@@ -89,43 +89,40 @@ const data = [{
     month: '7 月',
     value: 45,
   }];
-const TestTrend = ({ chartData, activeYear }:{
-    chartData: any;
-    activeYear: any;
 
-}) => {
+const monthSpan = 3;
+const TestTrend = ({ chartData, activeYear }) => {
   const [option, setOption] = useState({});
   const [dayList, setDayList] = useState([]);
   const [activeDate, setActiveDate] = useState();
 
-  useEffect(() => {
-    const { thisYearDataList, lastYearDataList, dayListArray } = remakeData();
+  const initOptionFn = (dataByYear, dayList) => {
+    // 根据dataByYear 生成series 暂时默认展示所有数据
+    const series = [];
+    for (const key in dataByYear) {
+      series.push({
+        type: 'line',
+        data: dataByYear[key],
+        name: key,
+      });
+    }
 
-    const initOption = {
-
+    return {
       xAxis: {
         type: 'time',
-        formatter: function(value) {
-          return dayjs(value).format('MM');
+        axisLabel: { // 可自定义x轴展示字段
+          formatter: function(value) {
+            return dayjs(value).format('MM');
+          },
         },
       },
       yAxis: {
         type: 'value',
       },
-      series: [{
-        symbol: 'none', // 去掉箭头
-        data: thisYearDataList,
-        type: 'line',
-        color: '#F9AD9B',
-        markLine: {
-          data: [],
-        },
-      }, {
-        symbol: 'none', // 去掉箭头
-        data: lastYearDataList,
-        color: '#00ADB8',
-        type: 'line',
-      }],
+      legend: {
+        data: Object.keys(dataByYear),
+      },
+      series,
       dataZoom: [{
         type: 'slider',
         show: false,
@@ -135,17 +132,26 @@ const TestTrend = ({ chartData, activeYear }:{
         zoomLock: true,
         filterMode: 'none',
       }],
-    };
 
-    setOption(initOption);
+    };
+  };
+  useEffect(() => {
+    const { dataByYear, dayList } = remakeData();
+
+    console.log('dayList', dayList);
+
+    setOption(initOptionFn(dataByYear, dayList));
+
+    const monthOfFirstDay = parseInt(dayjs(dayList[0].date).format('MM'));
 
     const getStartAndEndMonthIndex = (month) => {
-      const index = dayListArray.findIndex(item => parseInt(dayjs(item).format('MM')) === month);
-      const monthFormat = dayjs(dayListArray[index]).format('MM');
-      change(monthFormat, index, dayListArray);
+      const index = dayList.findIndex(item => {
+        return parseInt(dayjs(item.date).format('MM')) === month;
+      });
+      change(dayList[index], index, dayList);
     };
 
-    getStartAndEndMonthIndex(1); // 传入当前想展示的月份
+    getStartAndEndMonthIndex(monthOfFirstDay); // 传入当前想展示的月份
   }, []);
 
 
@@ -154,68 +160,166 @@ const TestTrend = ({ chartData, activeYear }:{
     return `${dayjs(activeDate).format('YYYY')}-${dayjs(date).format('MM-DD')}`;
   };
 
+  const getYear = (date) => {
+    return dayjs(date).format('YYYY');
+  };
+
   const remakeData = () => {
     // 按照日期排序
-    const sortedData = data.sort((a, b) => {
+    const dataSort = data.sort((a, b) => {
       return dayjs(formatDate(a.date)).valueOf() - dayjs(formatDate(b.date)).valueOf();
     });
 
-    const thisYearDataList = sortedData.filter((item) => item.type === '本年度')
-        .map((item) => ([
-          formatDate(item.date),
-          item.value,
-        ]));
+    const yearMap = new Map();
+    const dateMap = new Map();
+    dataSort.forEach(item => {
+      const { date, value } = item;
+      const dateStr = formatDate(date);
+      const year = getYear(date);
+      // 根据年度分别压入更新日期后数据
+      if (yearMap.has(year)) {
+        yearMap.set(year, yearMap.get(year).concat([[dateStr, value]]));
+        dateMap.set(year, dateMap.get(year).concat([{ date: dateStr, year }]));
+      } else {
+        yearMap.set(year, [[dateStr, value]]);
+        dateMap.set(year, [{ date: dateStr, year }]);
+      }
+    });
+    const dataByYear = Object.fromEntries(yearMap);
+    const dateByYear = Object.fromEntries(dateMap);
 
-    // 这里格式化成今年是为了在一个X轴展示
-    const lastYearDataList = sortedData.filter((item) => item.type === '上一年')
-        .map((item) => ([formatDate(item.date), item.value]));
+    console.log('dataByYear', dataByYear);
+    let dayList = [];
+    // 根据选中年份，获取对应的dayList
+    if (activeYear === '') {
+      for (const key in dataByYear) {
+        dayList = dayList.concat(dateByYear[key]);
+      }
+    } else {
+      dayList = dateByYear[activeYear];
+    }
+    dayList = dayList?.sort((a, b) => {
+      return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+    });
 
-    const dayListArray = thisYearDataList
-        .map((item) => item[0]);
 
-    setDayList(dayListArray);
+    setDayList(dayList);
 
+    console.log('dataByYear', dataByYear);
     return {
-      thisYearDataList,
-      lastYearDataList,
-      dayListArray,
+      dataByYear,
+      dayList,
     };
+  };
+
+  const getDataInDate = (date) => {
+    return data.filter(item => dayjs(item.date).format('MM-DD') === dayjs(date).format('MM-DD'));
+  };
+
+  const addMarkLine = (xAxisIndex, dayList) => {
+    const date = dayList[xAxisIndex].date;
+    const dataList = getDataInDate(date);
+    const markPointData = dataList.map(item => {
+      return {
+        xAxis: formatDate(item.date),
+        yAxis: item.value,
+        value: item.value,
+      };
+    });
+
+    setOption((prev) => {
+      return {
+        ...prev,
+        series: [
+          {
+            ...prev.series[0],
+            markLine: {
+              symbol: 'none', // 去掉箭头
+              data: [{
+                xAxis: date, // 选中的 x 轴坐标索引
+              }],
+              label: {
+                show: true, // 分割线是否展示对应日期
+                position: 'start', // 标签位置  start/end
+                formatter: function(params) {
+                  return `${dayjs(params.data.coord[0]).format('MM-DD')}`;
+                },
+              },
+              lineStyle: {
+                // color: '#868DD2', // 自定义分割线颜色
+              },
+            },
+            markPoint: {
+              data: markPointData,
+              itemStyle: {
+                // color: '#868DD2', // 自定义标记点颜色
+              },
+            },
+          },
+          {
+            ...prev.series[1],
+            markLine: {
+              symbol: 'none', // 去掉箭头
+              data: [{
+                xAxis: date, // 选中的 x 轴坐标索引
+              }],
+              label: {
+                show: true, // 分割线是否展示对应日期
+                position: 'start', // 标签位置  start/end
+                formatter: function(params) {
+                  return `${dayjs(params.data.coord[0]).format('MM-DD')}`;
+                },
+              },
+              lineStyle: {
+                // color: '#868DD2', // 自定义分割线颜色
+              },
+            },
+            markPoint: {
+              data: markPointData,
+              itemStyle: {
+                // color: '#868DD2', // 自定义标记点颜色
+              },
+            },
+          },
+        ],
+
+      };
+    });
   };
 
   const change = (item, index, dayList) => {
     let start, end;
     // 点击日期放在中间（数据中间）（若日期密度不确定则可能出现当前选中数据出现在非中间的其他位置）
-    start = index - 3 < 0 ? 0 : (index - 3);
-    end = start + 7;
+    start = index - monthSpan < 0 ? 0 : (index - monthSpan);
+    end = start + 2 * monthSpan;
+
     if (end > dayList.length) {
       end = dayList.length;
-      start = end - 7;
+      start = end - 2 * monthSpan;
     }
 
+    // 点击日期放在中间（月份中间）
+    // 根据全部数据获取月份，将当前月份至于中间，展示前后三个月数据（若日期密度不确定，则可能导致charts图一边密一边稀疏的情况）
+    const month = dayjs(item).format('MM');
+    // 获取当前月份的索引
+    const indexMonth = dayList.findIndex(item => dayjs(item.date).format('MM') === month);
+    let startMonthIndex = dayList.findIndex(item => parseInt(dayjs(item.date).format('MM')) === parseInt(month) - 3);
+    if (startMonthIndex < 0) startMonthIndex = 0;
+    // 获取当前月份的索引
+    const startMonth = dayjs(dayList[start].date).format('MM');
+    let endMonth = parseInt(startMonth) + 2 * monthSpan;
+    if (endMonth > 12) {
+      endMonth = 12;
+    }
+    if (indexMonth !== -1) {
+      start = startMonthIndex < 0 ? 0 : startMonthIndex;
+      end = dayList.findIndex(item => parseInt(dayjs(item.date).format('MM')) === endMonth);
+    }
 
-    // // 点击日期放在中间（月份中间）
-    // // 根据全部数据获取月份，将当前月份至于中间，展示前后三个月数据（若日期密度不确定，则可能导致charts图一边密一边稀疏的情况）
-    // const month = dayjs(item).format('MM');
-    // // 获取当前月份的索引
-    // const indexMonth = dayList.findIndex(item => dayjs(item).format('MM') === month);
-    // let startMonthIndex = dayList.findIndex(item => parseInt(dayjs(item).format('MM')) === parseInt(month) - 3);
-    // if (startMonthIndex < 0) startMonthIndex = 0;
-    // // 获取当前月份的索引
-    // const startMonth = dayjs(dayList[start]).format('MM');
-    // let endMonth = parseInt(startMonth) + 6;
-    // if (endMonth > 12) {
-    // 	endMonth = 12;
-    // }
-    // if (indexMonth !== -1) {
-    // 	start = startMonthIndex < 0 ? 0 : startMonthIndex;
-    // 	end = dayList.findIndex(item => parseInt(dayjs(item).format('MM')) === endMonth);
-    // }
-    //
-    // if (endMonth >= 12) {
-    // 	end = dayList.length - 1;
-    // 	start = dayList.findIndex(item => parseInt(dayjs(item).format('MM')) === parseInt(endMonth) - 6);
-    // }
-
+    if (endMonth >= 12) {
+      end = dayList.length - 1;
+      start = dayList.findIndex(item => parseInt(dayjs(item.date).format('MM')) === parseInt(endMonth) - 2 * monthSpan);
+    }
 
     // 更新echarts图表的dataZoom
     setOption((prev) => {
@@ -225,42 +329,24 @@ const TestTrend = ({ chartData, activeYear }:{
         ...prev,
         dataZoom: [
           {
+            ...prev.dataZoom[0],
             type: 'slider',
             show: false,
             filterMode: 'none',
             startValue: dayList[start],
             endValue: dayList[end],
           }, {
+            ...prev.dataZoom[1],
             type: 'inside',
             zoomLock: true,
             filterMode: 'none',
 
           },
         ],
-        series: [
-          {
-            ...prev.series?.[0],
-            markLine: {
-              data: [{
-                xAxis: dayList[index], // 选中的 x 轴坐标索引
-              }],
-            },
-          },
-          {
-            ...prev.series?.[1],
-            symbol: 'none', // 去掉箭头
-            markLine: {
-              data: [{
-                xAxis: dayList[index], // 选中的 x 轴坐标索引
-              }],
-              color: '#F9AD9B',
-            },
-
-
-          },
-        ],
       };
     });
+
+    addMarkLine(index, dayList);
   };
 
 
@@ -268,21 +354,20 @@ const TestTrend = ({ chartData, activeYear }:{
     setActiveDate(item);
     change(item, index, dayList);
   };
-
+  console.log('dayListqq', dayList);
   return (
       <div className="scroll max-w-[620px]">
         <ReactEcharts option={option} style={{ height: '400px' }} />
 
-
         <div className="overflow-x-scroll flex gap-2">
-          {activeYear && dayList.map((item, index) => (
+          {activeYear && dayList?.map((item, index) => (
               <Button shape="round" key={index} onClick={() => {
                 handleToggleDateBtnClick(item, index);
               }}
                       type="primary"
                       ghost={item !== activeDate}
               >
-                {item}
+                {item.date}
               </Button>
           ))}
         </div>

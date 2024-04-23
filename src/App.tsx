@@ -92,18 +92,23 @@ const data = [{
 
 const monthSpan = 3;
 const TestTrend = ({ chartData, activeYear }) => {
+  const chartRef = useState();
   const [option, setOption] = useState({});
   const [dayList, setDayList] = useState([]);
-  const [activeDate, setActiveDate] = useState();
+  const [activeDate, setActiveDate] = useState('');
+
 
   const initOptionFn = (dataByYear, dayList) => {
     // 根据dataByYear 生成series 暂时默认展示所有数据
     const series = [];
+
+    console.log('dataByYear4', dataByYear);
     for (const key in dataByYear) {
       series.push({
         type: 'line',
         data: dataByYear[key],
         name: key,
+
       });
     }
 
@@ -125,7 +130,7 @@ const TestTrend = ({ chartData, activeYear }) => {
       series,
       dataZoom: [{
         type: 'slider',
-        show: false,
+        show: true,
         filterMode: 'none',
       }, {
         type: 'inside',
@@ -136,11 +141,14 @@ const TestTrend = ({ chartData, activeYear }) => {
     };
   };
   useEffect(() => {
+    setActiveDate('');
+    const chartInstance = chartRef?.current?.getEchartsInstance();
+
     const { dataByYear, dayList } = remakeData();
 
-    console.log('dayList', dayList);
 
-    setOption(initOptionFn(dataByYear, dayList));
+    chartInstance.setOption(initOptionFn(dataByYear, dayList));
+    // setOption(initOptionFn(dataByYear, dayList));
 
     const monthOfFirstDay = parseInt(dayjs(dayList[0].date).format('MM'));
 
@@ -152,12 +160,12 @@ const TestTrend = ({ chartData, activeYear }) => {
     };
 
     getStartAndEndMonthIndex(monthOfFirstDay); // 传入当前想展示的月份
-  }, []);
+  }, [data, activeYear]);
 
 
   // 将日期转化为本年度
   const formatDate = (date) => {
-    return `${dayjs(activeDate).format('YYYY')}-${dayjs(date).format('MM-DD')}`;
+    return `${dayjs().format('YYYY')}-${dayjs(date).format('MM-DD')}`;
   };
 
   const getYear = (date) => {
@@ -170,11 +178,13 @@ const TestTrend = ({ chartData, activeYear }) => {
       return dayjs(formatDate(a.date)).valueOf() - dayjs(formatDate(b.date)).valueOf();
     });
 
+    console.log('dataSort', dataSort);
     const yearMap = new Map();
     const dateMap = new Map();
     dataSort.forEach(item => {
       const { date, value } = item;
       const dateStr = formatDate(date);
+
       const year = getYear(date);
       // 根据年度分别压入更新日期后数据
       if (yearMap.has(year)) {
@@ -188,7 +198,6 @@ const TestTrend = ({ chartData, activeYear }) => {
     const dataByYear = Object.fromEntries(yearMap);
     const dateByYear = Object.fromEntries(dateMap);
 
-    console.log('dataByYear', dataByYear);
     let dayList = [];
     // 根据选中年份，获取对应的dayList
     if (activeYear === '') {
@@ -198,6 +207,7 @@ const TestTrend = ({ chartData, activeYear }) => {
     } else {
       dayList = dateByYear[activeYear];
     }
+
     dayList = dayList?.sort((a, b) => {
       return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
     });
@@ -205,7 +215,6 @@ const TestTrend = ({ chartData, activeYear }) => {
 
     setDayList(dayList);
 
-    console.log('dataByYear', dataByYear);
     return {
       dataByYear,
       dayList,
@@ -217,6 +226,8 @@ const TestTrend = ({ chartData, activeYear }) => {
   };
 
   const addMarkLine = (xAxisIndex, dayList) => {
+    const chartInstance = chartRef?.current?.getEchartsInstance();
+
     const date = dayList[xAxisIndex].date;
     const dataList = getDataInDate(date);
     const markPointData = dataList.map(item => {
@@ -227,63 +238,35 @@ const TestTrend = ({ chartData, activeYear }) => {
       };
     });
 
-    setOption((prev) => {
-      return {
-        ...prev,
-        series: [
-          {
-            ...prev.series[0],
-            markLine: {
-              symbol: 'none', // 去掉箭头
-              data: [{
-                xAxis: date, // 选中的 x 轴坐标索引
-              }],
-              label: {
-                show: true, // 分割线是否展示对应日期
-                position: 'start', // 标签位置  start/end
-                formatter: function(params) {
-                  return `${dayjs(params.data.coord[0]).format('MM-DD')}`;
-                },
-              },
-              lineStyle: {
-                // color: '#868DD2', // 自定义分割线颜色
-              },
-            },
-            markPoint: {
-              data: markPointData,
-              itemStyle: {
-                // color: '#868DD2', // 自定义标记点颜色
-              },
-            },
-          },
-          {
-            ...prev.series[1],
-            markLine: {
-              symbol: 'none', // 去掉箭头
-              data: [{
-                xAxis: date, // 选中的 x 轴坐标索引
-              }],
-              label: {
-                show: true, // 分割线是否展示对应日期
-                position: 'start', // 标签位置  start/end
-                formatter: function(params) {
-                  return `${dayjs(params.data.coord[0]).format('MM-DD')}`;
-                },
-              },
-              lineStyle: {
-                // color: '#868DD2', // 自定义分割线颜色
-              },
-            },
-            markPoint: {
-              data: markPointData,
-              itemStyle: {
-                // color: '#868DD2', // 自定义标记点颜色
-              },
-            },
-          },
-        ],
 
-      };
+    chartInstance.setOption({
+      series: [
+        {
+          markLine: {
+            symbol: 'none', // 去掉箭头
+            data: [{
+              xAxis: date, // 选中的 x 轴坐标索引
+            }],
+            label: {
+              show: true, // 分割线是否展示对应日期
+              position: 'start', // 标签位置  start/end
+              formatter: function(params) {
+                return `${dayjs(params.data.coord[0]).format('MM-DD')}`;
+              },
+            },
+            lineStyle: {
+              // color: '#868DD2', // 自定义分割线颜色
+            },
+          },
+          markPoint: {
+            data: markPointData,
+            itemStyle: {
+              // color: '#868DD2', // 自定义标记点颜色
+            },
+          },
+        },
+
+      ],
     });
   };
 
@@ -306,7 +289,7 @@ const TestTrend = ({ chartData, activeYear }) => {
     let startMonthIndex = dayList.findIndex(item => parseInt(dayjs(item.date).format('MM')) === parseInt(month) - 3);
     if (startMonthIndex < 0) startMonthIndex = 0;
     // 获取当前月份的索引
-    const startMonth = dayjs(dayList[start].date).format('MM');
+    const startMonth = dayjs(dayList[start]?.date).format('MM');
     let endMonth = parseInt(startMonth) + 2 * monthSpan;
     if (endMonth > 12) {
       endMonth = 12;
@@ -321,29 +304,19 @@ const TestTrend = ({ chartData, activeYear }) => {
       start = dayList.findIndex(item => parseInt(dayjs(item.date).format('MM')) === parseInt(endMonth) - 2 * monthSpan);
     }
 
+    const chartInstance = chartRef?.current?.getEchartsInstance();
+
     // 更新echarts图表的dataZoom
-    setOption((prev) => {
-      console.log('dayList4', dayList, dayList[index]);
-
-      return {
-        ...prev,
-        dataZoom: [
-          {
-            ...prev.dataZoom[0],
-            type: 'slider',
-            show: false,
-            filterMode: 'none',
-            startValue: dayList[start].date,
-            endValue: dayList[end].date,
-          }, {
-            ...prev.dataZoom[1],
-            type: 'inside',
-            zoomLock: true,
-            filterMode: 'none',
-
-          },
-        ],
-      };
+    chartInstance.setOption({
+      dataZoom: [
+        {
+          type: 'slider',
+          show: false,
+          filterMode: 'none',
+          startValue: dayList[start]?.date,
+          endValue: dayList[end]?.date,
+        },
+      ],
     });
 
     addMarkLine(index, dayList);
@@ -354,10 +327,10 @@ const TestTrend = ({ chartData, activeYear }) => {
     setActiveDate(item);
     change(item, index, dayList);
   };
-  console.log('dayListqq', dayList);
+
   return (
       <div className="scroll max-w-[620px]">
-        <ReactEcharts option={option} style={{ height: '400px' }} />
+        <ReactEcharts option={option} style={{ height: '400px' }} ref={chartRef} />
 
         <div className="overflow-x-scroll flex gap-2">
           {activeYear && dayList?.map((item, index) => (
@@ -367,7 +340,7 @@ const TestTrend = ({ chartData, activeYear }) => {
                       type="primary"
                       ghost={item !== activeDate}
               >
-                {item.date}
+                {item.year}-{dayjs(item.date).format('MM-DD')}
               </Button>
           ))}
         </div>
@@ -388,7 +361,7 @@ const MenuGroup = ({ data, currentTab, setCurrentTab }) => {
         </Button>
         {
           // data?.year.length > 1 &&
-          ['2013', '2014']?.map((item) => {
+          ['2022', '2023']?.map((item) => {
             return <Button
                 className='px-[20px] py-[10px] text-sm leading-5 tracking-wider justify-center items-stretch border bg-white rounded-3xl border-solid h-auto'
                 onClick={() => {

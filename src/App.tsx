@@ -97,18 +97,21 @@ const TestTrend = ({ chartData, activeYear }) => {
   const [dayList, setDayList] = useState([]);
   const [activeDate, setActiveDate] = useState('');
 
-
   const initOptionFn = (dataByYear, dayList) => {
     // 根据dataByYear 生成series 暂时默认展示所有数据
     const series = [];
 
     console.log('dataByYear4', dataByYear);
     for (const key in dataByYear) {
+      console.log('key', key);
       series.push({
         type: 'line',
         data: dataByYear[key],
         name: key,
-
+        lineStyle: {
+          color: key === activeYear ? '#00ADB8' : '#FAD4A6',
+          width: 3, // 设置线条粗细为5
+        },
       });
     }
 
@@ -120,12 +123,30 @@ const TestTrend = ({ chartData, activeYear }) => {
             return dayjs(value).format('MM');
           },
         },
+        axisLine: {
+          show: false,
+        },
+        axisTick: {
+          show: false,
+        },
+        lineStyle: {
+          color: 'red',
+        },
       },
       yAxis: {
         type: 'value',
+        splitLine: {
+          color: '#D9F0F2',
+        },
+        axisLabel: {
+          color: '#00ADB8',
+        },
       },
       legend: {
         data: Object.keys(dataByYear),
+        itemStyle: {
+          borderCap: 'square',
+        },
       },
       series,
       dataZoom: [{
@@ -243,6 +264,7 @@ const TestTrend = ({ chartData, activeYear }) => {
       series: [
         {
           markLine: {
+
             symbol: 'none', // 去掉箭头
             data: [{
               xAxis: date, // 选中的 x 轴坐标索引
@@ -253,15 +275,28 @@ const TestTrend = ({ chartData, activeYear }) => {
               formatter: function(params) {
                 return `${dayjs(params.data.coord[0]).format('MM-DD')}`;
               },
+              borderType: 'solid',
+
             },
+
             lineStyle: {
-              // color: '#868DD2', // 自定义分割线颜色
+              color: '#F9AD9B', // 自定义分割线颜色
+              type: 'solid',
+              width: 2,
             },
           },
           markPoint: {
             data: markPointData,
+            symbol: 'circle',
+            symbolSize: 20,
             itemStyle: {
-              // color: '#868DD2', // 自定义标记点颜色
+              color: '#F9AD9B', // 自定义标记点颜色
+            },
+            label: {
+              color: '#00ADB8',// 自定义标记点颜色
+              position: 'right',
+              fontWeight: 'bold',
+              fontSize: 14,
             },
           },
         },
@@ -271,6 +306,7 @@ const TestTrend = ({ chartData, activeYear }) => {
   };
 
   const change = (item, index, dayList) => {
+    setActiveDate(item);
     let start, end;
     // 点击日期放在中间（数据中间）（若日期密度不确定则可能出现当前选中数据出现在非中间的其他位置）
     start = index - monthSpan < 0 ? 0 : (index - monthSpan);
@@ -317,6 +353,7 @@ const TestTrend = ({ chartData, activeYear }) => {
           endValue: dayList[end]?.date,
         },
       ],
+
     });
 
     addMarkLine(index, dayList);
@@ -324,7 +361,7 @@ const TestTrend = ({ chartData, activeYear }) => {
 
 
   const handleToggleDateBtnClick = (item, index) => {
-    setActiveDate(item);
+
     change(item, index, dayList);
   };
 
@@ -372,8 +409,6 @@ const MenuGroup = ({ data, currentTab, setCurrentTab }) => {
             </Button>;
           })
         }
-
-
       </div>
   );
 };

@@ -333,8 +333,8 @@ const TestTrend = ({ chartData, activeYear }) => {
             type: 'slider',
             show: false,
             filterMode: 'none',
-            startValue: dayList[start],
-            endValue: dayList[end],
+            startValue: dayList[start].date,
+            endValue: dayList[end].date,
           }, {
             ...prev.dataZoom[1],
             type: 'inside',

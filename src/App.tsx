@@ -12,13 +12,13 @@ import { Button, Select } from 'antd';
 
 const data = [
   {
-    date: '2023-01-05',
+    date: '2023-04-03',
     type: '本年度',
     month: '1 月',
-    value: 42,
+    value: 4,
   },
   {
-    date: '2023-02-03',
+    date: '2023-04-04',
     type: '本年度',
     month: '2 月',
     value: 67,
@@ -92,6 +92,12 @@ const data = [
   },
 ];
 
+// const data = [{
+  
+//     value: 4.0,
+//     date: "2024-04-03",
+
+// }]
 const monthSpan = 3;
 
 const colorByYear = {
@@ -157,15 +163,21 @@ const TestTrend = ({ chartData, activeYear }) => {
       xAxis: {
         type: 'time',
         axisLabel: {
+          showMinLabel: false,
           // 可自定义x轴展示字段
           formatter: function (value) {
+            if( data.length === 1 && dayjs(value).day()!==dayjs(data[0].date).day()){
+              return ''
+            }
             if(!activeYear){
               // 选择全部时，可能出现重复月，为区分，则加上了年的展示
-              return `${dayjs(value).format('YYYY-M')}月`;
+              return `${dayjs(value).format('YYYY-MM')}`;
             }
             return `${dayjs(value).format('M')}月`;
           },
         },
+        minInterval: 1000 * 60 * 60 * 24 * 30, // 一个月
+        maxInterval: data.length === 1 ? 1000 * 60 * 60 * 24 : 1000 * 60 * 60 * 24 * 30,
       },
       yAxis: {
         type: 'value',
@@ -191,7 +203,6 @@ const TestTrend = ({ chartData, activeYear }) => {
     const chartInstance = chartRef?.current?.getEchartsInstance();
     // 清空图表，避免选择全部时数据异常
     chartInstance.clear();
-
     const { dataByYear, dayList, dataFormat } = remakeData();
 
     chartInstance.setOption(initOptionFn(dataByYear, dayList, dataFormat));
@@ -207,6 +218,13 @@ const TestTrend = ({ chartData, activeYear }) => {
     };
 
     getStartAndEndMonthIndex(monthOfFirstDay); // 传入当前想展示的月份
+    
+    chartInstance.getZr().on('mousemove', function(params){
+      const { offsetX, offsetY } = params;
+      const indexArray = chartInstance.convertFromPixel('grid', [offsetX,offsetY]);
+      const xIndex = indexArray[0];
+      addMarkLine({date: xIndex})
+    })
   }, [data, activeYear]);
 
   // 将日期转化为本年度
@@ -274,25 +292,27 @@ const TestTrend = ({ chartData, activeYear }) => {
     return data.filter((item) => dayjs(item.date).format('MM-DD') === dayjs(date).format('MM-DD'));
   };
 
-  const addMarkLine = (xAxisIndex, dayList) => {
+  const addMarkLine = ({xAxisIndex, dayList, date}) => {
     const chartInstance = chartRef?.current?.getEchartsInstance();
+    const dateX = date ? dayjs(date).format('YYYY-MM-DD') : dayList[xAxisIndex].date;
+    const dataList = getDataInDate(dateX);
 
-    const date = dayList[xAxisIndex].date;
-    const dataList = getDataInDate(date);
+    if(dataList.length === 0)
+    return;
     const markPointData = dataList.map((item) => {
       return {
-        xAxis: formatDate(item.date),
+        xAxis: activeYear ? formatDate(item.date) : item.date,
         yAxis: item.value,
         value: item.value,
       };
     });
 
-    if (activeYear) {
+    // if (activeYear) {
       let markLine = {
         symbol: 'none', // 去掉箭头
         data: [
           {
-            xAxis: date, // 选中的 x 轴坐标索引
+            xAxis: dateX, // 选中的 x 轴坐标索引
           },
         ],
         label: {
@@ -328,7 +348,7 @@ const TestTrend = ({ chartData, activeYear }) => {
           },
         ],
       });
-    }
+    // }
   };
 
   const change = (item, index, dayList) => {
@@ -353,7 +373,7 @@ const TestTrend = ({ chartData, activeYear }) => {
         },
       },
     });
-    addMarkLine(index, dayList);
+    addMarkLine({index, dayList,date:dayList[index].date});
   };
 
   const isMonthActive = (value, date) => {
@@ -405,6 +425,7 @@ const TestTrend = ({ chartData, activeYear }) => {
     </div>
   );
 };
+
 
 const MenuGroup = ({ data, currentTab, setCurrentTab }) => {
   return (

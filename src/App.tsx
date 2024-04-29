@@ -14,82 +14,82 @@ const data = [
   {
     date: '2023-04-03',
     type: '本年度',
-    month: '1 月',
+    month: '4 月',
     value: 4,
   },
   {
     date: '2023-04-04',
     type: '本年度',
-    month: '2 月',
+    month: '4 月',
     value: 67,
   },
-  {
-    date: '2023-03-12',
-    type: '本年度',
-    month: '3 月',
-    value: 38,
-  },
-  {
-    date: '2023-04-20',
-    type: '本年度',
-    month: '4 月',
-    value: 55,
-  },
-  {
-    date: '2023-05-05',
-    type: '本年度',
-    month: '5 月',
-    value: 76,
-  },
-  {
-    date: '2023-06-10',
-    type: '本年度',
-    month: '6 月',
-    value: 23,
-  },
+  // {
+  //   date: '2023-03-12',
+  //   type: '本年度',
+  //   month: '3 月',
+  //   value: 38,
+  // },
+  // {
+  //   date: '2023-04-20',
+  //   type: '本年度',
+  //   month: '4 月',
+  //   value: 55,
+  // },
+  // {
+  //   date: '2023-05-05',
+  //   type: '本年度',
+  //   month: '5 月',
+  //   value: 76,
+  // },
+  // {
+  //   date: '2023-06-10',
+  //   type: '本年度',
+  //   month: '6 月',
+  //   value: 23,
+  // },
 
-  {
-    date: '2023-09-05',
-    type: '本年度',
-    month: '9 月',
-    value: 33,
-  },
-  {
-    date: '2023-10-10',
-    type: '本年度',
-    month: '10 月',
-    value: 66,
-  },
-  {
-    date: '2023-11-15',
-    type: '本年度',
-    month: '11 月',
-    value: 55,
-  },
-  {
-    date: '2023-12-20',
-    type: '本年度',
-    month: '12 月',
-    value: 99,
-  },
-  {
-    date: '2022-05-06',
-    type: '上一年',
-    month: '5 月',
-    value: 56,
-  },
-  {
-    date: '2022-06-07',
-    type: '上一年',
-    month: '6 月',
-    value: 85,
-  },
-  {
-    date: '2022-07-09',
-    type: '上一年',
-    month: '7 月',
-    value: 45,
-  },
+  // {
+  //   date: '2023-09-05',
+  //   type: '本年度',
+  //   month: '9 月',
+  //   value: 33,
+  // },
+  // {
+  //   date: '2023-10-10',
+  //   type: '本年度',
+  //   month: '10 月',
+  //   value: 66,
+  // },
+  // {
+  //   date: '2023-11-15',
+  //   type: '本年度',
+  //   month: '11 月',
+  //   value: 55,
+  // },
+  // {
+  //   date: '2023-12-20',
+  //   type: '本年度',
+  //   month: '12 月',
+  //   value: 99,
+  // },
+  // {
+  //   date: '2022-05-06',
+  //   type: '上一年',
+  //   month: '5 月',
+  //   value: 56,
+  // },
+  // {
+  //   date: '2022-06-07',
+  //   type: '上一年',
+  //   month: '6 月',
+  //   value: 85,
+  // },
+  // {
+  //   date: '2022-07-09',
+  //   type: '上一年',
+  //   month: '7 月',
+  //   value: 45,
+  // },
 ];
 
 // const data = [{
@@ -159,15 +159,41 @@ const TestTrend = ({ chartData, activeYear }) => {
     } else {
       legend.show = true;
     }
+    function checkDate(data){
+      if(data.length !== 2){
+        return false;
+      }
+      if(dayjs(data[0][0]).add(1, 'day').isSame(dayjs(data[1][0]), 'day')){
+        return true;
+      }
+      return false
+    }
+    let type = 'time';
+    let xAxisData = null;
+    let showMinLabel = false;
+    if(Object.keys(dataByYear).length === 1 && checkDate(dataByYear[legend.data[0]])){
+      type = 'category',
+      xAxisData = dataByYear[legend.data[0]].map(item => item[0])
+      series[0].data = series[0].data.map(item => {
+        return item[1]
+      })
+      showMinLabel = true;
+    }
     return {
       xAxis: {
-        type: 'time',
+        type,
+        data: xAxisData,
+        boundaryGap: false,
         axisLabel: {
-          showMinLabel: false,
+          showMinLabel,
           // 可自定义x轴展示字段
           formatter: function (value) {
             if( data.length === 1 && dayjs(value).day()!==dayjs(data[0].date).day()){
               return ''
+            }
+            if(type === 'category'){
+              // 若展示数据为相邻两天，则展示年月日
+              return `${dayjs(value).format('YYYY-MM-DD')}`;
             }
             if(!activeYear){
               // 选择全部时，可能出现重复月，为区分，则加上了年的展示
@@ -223,7 +249,7 @@ const TestTrend = ({ chartData, activeYear }) => {
       const { offsetX, offsetY } = params;
       const indexArray = chartInstance.convertFromPixel('grid', [offsetX,offsetY]);
       const xIndex = indexArray[0];
-      addMarkLine({date: xIndex})
+      // addMarkLine({date: xIndex})
     })
   }, [data, activeYear]);
 
@@ -373,7 +399,7 @@ const TestTrend = ({ chartData, activeYear }) => {
         },
       },
     });
-    addMarkLine({index, dayList,date:dayList[index].date});
+    // addMarkLine({index, dayList,date:dayList[index].date});
   };
 
   const isMonthActive = (value, date) => {
